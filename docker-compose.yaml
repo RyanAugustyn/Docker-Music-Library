@@ -27,3 +27,205 @@ services:
     command: >
       sh -c "npm start"
     image: ryanaugustyn/music-library-frontend:1
+
+
+
+
+######################
+
+ MySQL, Flask, and React.js Docker-Compose File
+
+A breakdown of the recommended full stack MySQL, Flask, and React.js application docker-compose file structure.
+
+
+
+version: '3.1'
+services:
+  your-app-database:
+    build: ./database
+    ports:
+      - 3307:3006
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    restart: always
+    volumes:
+      - db-data:/var/lib/mysql
+  your-app-backend:
+    build: ./backend
+    ports:
+      - 5000:5000
+    restart: always
+    depends_on:
+      - "your-app-database"
+    command: >
+      sh -c "flask db upgrade && flask run --host=0.0.0.0"
+  your-app-frontend:
+    build: ./frontend
+    ports:
+      - 3001:80
+    depends_on:
+      - "your-app-backend"
+volumes:
+  db-data:
+
+ 
+ 
+
+Here's a breakdown of each line in the docker-compose.yaml file with a brief explanation of its purpose:
+ 
+
+version: '3.1': This line specifies the version of the Docker Compose file format being used.
+
+services:: This line begins the definition of the different containers that make up the application.
+ 
+Database
+
+your-app-database:
+
+This is the name of the first container, which is used to host the database for the application.
+
+build: ./database
+
+This line specifies that the container image should be built from the ./database directory.
+
+ports:
+	- 3307:3306
+
+This line specifies the port mapping between the container and the host system. In this case, the container port 3306 is mapped to host port 3307.
+
+environment:
+	- MYSQL_ROOT_PASSWORD=root
+
+This line sets environment variables for the container. Here, the MYSQL_ROOT_PASSWORD variable is set to root.
+
+restart: always
+
+This line ensures that the container is always restarted if it stops for any reason.
+
+volumes:
+	- db-data:/var/lib/mysql
+
+This line specifies that the db-data volume should be created and mounted to /var/lib/mysql in the container.
+Backend
+
+your-app-backend:
+
+This is the name of the second container, which is used to host the backend of the application.
+
+build: ./backend
+
+This line specifies that the container image should be built from the ./backend directory.
+
+ports:
+- 5000:5000
+
+This line specifies the port mapping between the container and the host system. In this case, the container port 5000 is mapped to host port 5000.
+
+restart: always
+
+This line ensures that the container is always restarted if it stops for any reason.
+
+depends_on:
+	- "music-library-database"
+
+This line specifies that the your-app-backend container depends on the your-app-database container. This way the docker-compose up command will first attempt to launch the your-app-database service before starting this one. 
+💡
+NOTE: The depends_on instruction will not “wait” for the entire MySQL server to be up and running before attempting to launch the backend service. The depends_on acts a launch order specifier, but it is not aware when other services have completed their start-up processes.
+
+command: >
+	sh -c "flask db upgrade && flask run --host=0.0.0.0"
+
+This line specifies the command that should be run when the container starts. Here, the command runs the flask db upgrade and flask run commands.
+Frontend
+
+your-app-frontend:
+
+This is the name of the third container, which is used to host the frontend of the application.
+
+build: ./frontend
+
+This line specifies that the container image should be built from the ./frontend directory.
+
+ports:
+	- 3001:80
+
+This line specifies the port mapping between the container and the host system. In this case, the container port 80 is mapped to host port 3001.
+
+depends_on:
+	- "music-library-backend"
+
+This line specifies that the your-app-frontend container depends on the your-app-backend container.
+💡
+NOTE: The depends_on instruction will not “wait” for the entire backend server to be up and running before attempting to launch the frontend service. The depends_on acts a launch order specifier, but it is not aware when other services have completed their start-up processes.
+Volumes
+
+volumes:
+
+This line specifies that the db-data volume should be mounted in this container as well.
+
+db-data:
+
+This is the name of the volume that is created and used by the your-app-database and your-app-frontend containers. It is mounted to /var/lib/mysql in the your-app-database container and to the same location in the your-app-frontend container.
+ 
+Modifying the MySQL ENV File’s Connection String
+
+In order for our backend server/service to have the ability to connect and communicate with the MySQL container server, we need to modify the SQLALCHEMY_DATABASE_URI value in the backend folder’s .env file.
+
+To do this, you place the name of your database service (as defined in the docker-compose file) and place it in the database URI as highlighted below:
+
+SQLALCHEMY_DATABASE_URI = 'mysql+mysqlconnector://root:root@your-app-database <--- highlight /<database_name>'
+
+The above highlighted portion is directly referencing the database service outlined in the docker-compose file:
+
+version: '3.1'
+services:
+  your-app-database: <--- highlight
+    build: ./database
+...
+
+ 
+
+Make sure that you also specify the correct name of the database at the end of the connection string:
+
+SQLALCHEMY_DATABASE_URI = 'mysql+mysqlconnector://root:root@your-app-database/<database_name> <--- highlight '
+
+ 
+Production Deployment Version
+
+Production deployment version
+
+version: '3.1'
+services:
+  your-app-database:
+    # build: ./database
+	image: dockerhubusername/your-app-database:1
+    ports:
+      - 3306:3006
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    restart: always
+    volumes:
+      - db-data:/var/lib/mysql
+  your-app-backend:
+    # build: ./backend
+	image: dockerhubusername/your-app-backend:1
+    ports:
+      - 5000:5000
+    restart: always
+    depends_on:
+      - "your-app-database"
+    command: >
+      sh -c "flask db upgrade && flask run --host=0.0.0.0"
+  your-app-frontend:
+    # build: ./frontend
+	image: dockerhubusername/your-app-frontend:1
+    ports:
+      - 80:80
+    depends_on:
+      - "your-app-backend"
+volumes:
+  db-data:
+
+In this production version you would need to build and push the images to your Docker Hub repositories. Then comment out the build commands before copying this docker-compose file to a remote Linux server.
+
+Also notice that the MySQL server port mappings are from 3306 on the computer to 3306 on the container. As well as the frontend service port mappings from 80 on the computer to 80 on the container.
